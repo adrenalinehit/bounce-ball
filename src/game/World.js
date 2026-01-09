@@ -134,32 +134,60 @@ export class World {
       }
     }
 
-    // block collisions (naive: check all blocks)
+    // block collisions: resolve all overlapping blocks to prevent stuck balls
     for (const ball of this.balls) {
       if (ball.stuckToPaddle) continue;
+      
+      // Collect all overlapping blocks
+      const overlappingBlocks = [];
       for (const block of this.blocks) {
         if (block.dead) continue;
-        if (!circleVsAabb(ball.x, ball.y, ball.radius, block.aabb)) continue;
-
-        // minimal axis resolution (approx)
-        const res = resolveCircleAabb(ball, block.aabb);
-        if (res) {
-          if (res.axis === "x") ball.vx *= -1;
-          else ball.vy *= -1;
-        } else {
-          ball.vy *= -1;
+        if (circleVsAabb(ball.x, ball.y, ball.radius, block.aabb)) {
+          overlappingBlocks.push(block);
         }
-
+      }
+      
+      if (overlappingBlocks.length === 0) continue;
+      
+      // Resolve collisions with all overlapping blocks iteratively
+      // This prevents balls from getting stuck between multiple blocks
+      let primaryResolution = null;
+      const maxIterations = 3;
+      for (let iter = 0; iter < maxIterations; iter++) {
+        let hadCollision = false;
+        for (const block of overlappingBlocks) {
+          const res = resolveCircleAabb(ball, block.aabb);
+          if (res) {
+            hadCollision = true;
+            // Store the first resolution to determine bounce direction
+            if (!primaryResolution) {
+              primaryResolution = res;
+            }
+          }
+        }
+        if (!hadCollision) break;
+      }
+      
+      // Bounce velocity based on the primary collision
+      if (primaryResolution) {
+        if (primaryResolution.axis === "x") ball.vx *= -1;
+        else ball.vy *= -1;
+      } else {
+        ball.vy *= -1;
+      }
+      
+      // Hit all overlapping blocks and handle their destruction
+      for (const block of overlappingBlocks) {
         const { destroyed } = block.hit();
         if (destroyed) {
           this.onScore(block.score);
           this._onBlockDestroyed(block, ball);
           this._juice(0.07, 7, 0.06);
         }
-        if (this.onSfx) this.onSfx("block");
-        // Only one block collision per ball per step to reduce weirdness
-        break;
       }
+      
+      // Play sound once per collision event
+      if (this.onSfx) this.onSfx("block");
     }
 
     // remove dead blocks
