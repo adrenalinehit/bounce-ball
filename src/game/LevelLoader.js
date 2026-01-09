@@ -58,7 +58,7 @@ export class LevelLoader {
           ".X1111111111X.",
           ".X1222222221X.",
           ".X1111111111X.",
-          ".XXXXXXXXXXXX.",
+          ".XXXXXEXXXXXX.",
         ],
         legend: {
           ".": { type: "empty" },
