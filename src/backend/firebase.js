@@ -1,5 +1,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
+  ReCaptchaV3Provider,
+  initializeAppCheck,
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js";
+import {
   addDoc,
   collection,
   getDocs,
@@ -20,7 +24,32 @@ const firebaseConfig = {
   appId: "1:830481490222:web:56decd601559302b871abf",
 };
 
+// Firebase App Check (reCAPTCHA v3)
+// NOTE: This is the App Check site key (public), configured in Firebase Console → App Check.
+const APP_CHECK_SITE_KEY = "6LdRekUsAAAAAHwevN-t_Dm52Uwfm0GyMDOd_XTK";
+
 const app = initializeApp(firebaseConfig);
+
+// Helpful for local dev before enabling/enforcing App Check:
+// - When FIREBASE_APPCHECK_DEBUG_TOKEN is true, Firebase prints a debug token in the console.
+// - Add that token in Firebase Console → App Check → Manage debug tokens.
+try {
+  if (typeof window !== "undefined") {
+    const host = window.location?.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      // eslint-disable-next-line no-undef
+      self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    }
+  }
+} catch {
+  // ignore
+}
+
+initializeAppCheck(app, {
+  provider: new ReCaptchaV3Provider(APP_CHECK_SITE_KEY),
+  isTokenAutoRefreshEnabled: true,
+});
+
 const db = getFirestore(app);
 const functions = getFunctions(app);
 const scoresCol = collection(db, "scores");
