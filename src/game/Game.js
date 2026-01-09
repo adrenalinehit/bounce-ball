@@ -109,18 +109,21 @@ export class Game {
 
   _update(dt) {
     if (this.input.consumePointerDown()) ensureAudioUnlocked();
+    const tap = this.input.consumeTap();
+    const doubleTap = this.input.consumeDoubleTap();
+    const longPress = this.input.consumeLongPress();
 
-    if (this._justPressed("KeyP")) {
+    if (this._justPressed("KeyP") || doubleTap) {
       if (this.state === GameState.playing) this._setState(GameState.paused);
       else if (this.state === GameState.paused) this._setState(GameState.playing);
     }
-    if (this._justPressed("KeyR")) {
+    if (this._justPressed("KeyR") || longPress) {
       this._resetRun();
       this._setState(GameState.title);
     }
 
     if (this.state === GameState.title) {
-      if (this._justPressed("Space")) {
+      if (this._justPressed("Space") || tap) {
         ensureAudioUnlocked();
         this._resetRun();
         this._loadLevel(0);
@@ -130,7 +133,7 @@ export class Game {
     }
 
     if (this.state === GameState.win || this.state === GameState.game_over) {
-      if (this._justPressed("Space")) {
+      if (this._justPressed("Space") || tap) {
         ensureAudioUnlocked();
         if (this.state === GameState.game_over) {
           this._resetRun();

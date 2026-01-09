@@ -7,6 +7,18 @@ export class Input {
     this.keys = new Set();
     this.pointerX = null;
     this.pointerActive = false;
+    this.pointerY = null;
+    this._pointerId = null;
+    this._pointerDown = false;
+    this._tap = false;
+    this._doubleTap = false;
+    this._longPress = false;
+    this._lastTapAt = 0;
+    this._downAt = 0;
+    this._downX = 0;
+    this._downY = 0;
+    this._moved = false;
+    this._longPressTimer = null;
 
     this._onKeyDown = (e) => {
       this.keys.add(e.code);
@@ -21,42 +33,115 @@ export class Input {
       this.pointerActive = false;
     };
 
-    this._onMouseMove = (e) => {
+    const calcPointer = (clientX, clientY) => {
       const rect = this.canvas.getBoundingClientRect();
-      this.pointerX = ((e.clientX - rect.left) / rect.width) * this.canvas.width;
+      const x = ((clientX - rect.left) / rect.width) * this.canvas.width;
+      const y = ((clientY - rect.top) / rect.height) * this.canvas.height;
+      return { x, y };
+    };
+
+    this._onPointerMove = (e) => {
+      if (this._pointerId !== null && e.pointerId !== this._pointerId) return;
+      const p = calcPointer(e.clientX, e.clientY);
+      this.pointerX = p.x;
+      this.pointerY = p.y;
+      this.pointerActive = true;
+
+      const dx = p.x - this._downX;
+      const dy = p.y - this._downY;
+      if (Math.hypot(dx, dy) > 18) this._moved = true;
+    };
+
+    this._onPointerDown = (e) => {
+      // capture one active pointer for gestures
+      if (this._pointerId !== null && e.pointerId !== this._pointerId) return;
+      this._pointerId = e.pointerId;
+      this._pointerDown = true;
+      this._downAt = performance.now();
+      this._moved = false;
+
+      const p = calcPointer(e.clientX, e.clientY);
+      this.pointerX = p.x;
+      this.pointerY = p.y;
+      this.pointerActive = true;
+      this._downX = p.x;
+      this._downY = p.y;
+
+      // focus for keyboard users; harmless on mobile
+      this.canvas.focus();
+
+      // long press -> restart
+      if (this._longPressTimer) clearTimeout(this._longPressTimer);
+      this._longPressTimer = setTimeout(() => {
+        if (this._pointerDown && !this._moved) this._longPress = true;
+      }, 650);
+    };
+
+    this._onPointerUp = (e) => {
+      if (this._pointerId !== null && e.pointerId !== this._pointerId) return;
+      this._pointerDown = false;
+      if (this._longPressTimer) {
+        clearTimeout(this._longPressTimer);
+        this._longPressTimer = null;
+      }
+
+      const now = performance.now();
+      const heldMs = now - this._downAt;
+      // tap: quick press without significant movement
+      if (!this._moved && heldMs < 300) {
+        this._tap = true;
+        if (now - this._lastTapAt < 320) this._doubleTap = true;
+        this._lastTapAt = now;
+      }
+      this._pointerId = null;
+    };
+
+    this._onPointerCancel = () => {
+      this._pointerDown = false;
+      this._pointerId = null;
+      if (this._longPressTimer) {
+        clearTimeout(this._longPressTimer);
+        this._longPressTimer = null;
+      }
+    };
+
+    // Mouse move still works for desktop without a captured pointer.
+    this._onMouseMove = (e) => {
+      if (this._pointerId !== null) return;
+      const p = calcPointer(e.clientX, e.clientY);
+      this.pointerX = p.x;
+      this.pointerY = p.y;
       this.pointerActive = true;
     };
     this._onMouseLeave = () => {
+      if (this._pointerId !== null) return;
       this.pointerActive = false;
-    };
-    this._onMouseDown = () => {
-      this.canvas.focus();
-    };
-
-    this._onPointerDown = () => {
-      // unlock audio on first user gesture
-      this._pointerDown = true;
     };
   }
 
   attach() {
-    this.canvas.addEventListener("keydown", this._onKeyDown);
-    this.canvas.addEventListener("keyup", this._onKeyUp);
-    this.canvas.addEventListener("blur", this._onBlur);
+    // Use window-level key listeners so desktop keyboard works even if canvas isn't focused.
+    window.addEventListener("keydown", this._onKeyDown, { passive: false });
+    window.addEventListener("keyup", this._onKeyUp, { passive: true });
+    window.addEventListener("blur", this._onBlur);
     this.canvas.addEventListener("mousemove", this._onMouseMove);
     this.canvas.addEventListener("mouseleave", this._onMouseLeave);
-    this.canvas.addEventListener("mousedown", this._onMouseDown);
     this.canvas.addEventListener("pointerdown", this._onPointerDown);
+    this.canvas.addEventListener("pointermove", this._onPointerMove);
+    this.canvas.addEventListener("pointerup", this._onPointerUp);
+    this.canvas.addEventListener("pointercancel", this._onPointerCancel);
   }
 
   detach() {
-    this.canvas.removeEventListener("keydown", this._onKeyDown);
-    this.canvas.removeEventListener("keyup", this._onKeyUp);
-    this.canvas.removeEventListener("blur", this._onBlur);
+    window.removeEventListener("keydown", this._onKeyDown);
+    window.removeEventListener("keyup", this._onKeyUp);
+    window.removeEventListener("blur", this._onBlur);
     this.canvas.removeEventListener("mousemove", this._onMouseMove);
     this.canvas.removeEventListener("mouseleave", this._onMouseLeave);
-    this.canvas.removeEventListener("mousedown", this._onMouseDown);
     this.canvas.removeEventListener("pointerdown", this._onPointerDown);
+    this.canvas.removeEventListener("pointermove", this._onPointerMove);
+    this.canvas.removeEventListener("pointerup", this._onPointerUp);
+    this.canvas.removeEventListener("pointercancel", this._onPointerCancel);
   }
 
   isDown(code) {
@@ -64,8 +149,27 @@ export class Input {
   }
 
   consumePointerDown() {
-    const v = !!this._pointerDown;
-    this._pointerDown = false;
+    // "user gesture happened" signal (used to unlock audio)
+    // Note: don't clear pointer down state here; just report if a tap/press occurred.
+    if (this._tap || this._doubleTap || this._longPress || this._pointerDown) return true;
+    return false;
+  }
+
+  consumeTap() {
+    const v = this._tap;
+    this._tap = false;
+    return v;
+  }
+
+  consumeDoubleTap() {
+    const v = this._doubleTap;
+    this._doubleTap = false;
+    return v;
+  }
+
+  consumeLongPress() {
+    const v = this._longPress;
+    this._longPress = false;
     return v;
   }
 }
