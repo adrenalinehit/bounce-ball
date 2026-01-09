@@ -29,4 +29,36 @@ const hud = getHud();
 const game = new Game({ canvas, ctx, hud });
 game.start();
 
+// Cheat mode: add a level selector when `?cheat=1` is present
+const params = new URLSearchParams(window.location.search);
+const cheatMode = params.get("cheat") === "1";
+if (cheatMode) {
+  const panel = document.getElementById("cheatPanel");
+  const levelSel = document.getElementById("cheatLevel");
+  const loadBtn = document.getElementById("cheatLoad");
+
+  if (panel && levelSel instanceof HTMLSelectElement) {
+    panel.hidden = false;
+    const metas = game.getLevelMetaList();
+    levelSel.replaceChildren(
+      ...metas.map((m) => {
+        const opt = document.createElement("option");
+        opt.value = String(m.index);
+        opt.textContent = `${m.index + 1}. ${m.name}`;
+        return opt;
+      }),
+    );
+    levelSel.value = "0";
+  }
+
+  const doLoad = () => {
+    if (!(levelSel instanceof HTMLSelectElement)) return;
+    game.cheatLoadLevel(parseInt(levelSel.value, 10));
+    canvas.focus();
+  };
+
+  if (loadBtn) loadBtn.addEventListener("click", doLoad);
+  if (levelSel) levelSel.addEventListener("change", doLoad);
+}
+
 

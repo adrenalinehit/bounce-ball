@@ -113,6 +113,10 @@ export class LevelLoader {
   getLevelCount() {
     return this.levels.length;
   }
+
+  getLevelMetaList() {
+    return this.levels.map((lvl, index) => ({ index, name: lvl.name ?? `Level ${index + 1}` }));
+  }
 }
 
 

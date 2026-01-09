@@ -48,6 +48,20 @@ export class Game {
     requestAnimationFrame((ts) => this._frame(ts));
   }
 
+  getLevelMetaList() {
+    return this.levelLoader.getLevelMetaList();
+  }
+
+  cheatLoadLevel(index) {
+    const i = Number(index);
+    if (!Number.isFinite(i)) return;
+    ensureAudioUnlocked();
+    this.score = 0;
+    this.lives = 3;
+    this._loadLevel(Math.max(0, Math.floor(i)));
+    this._setState(GameState.playing);
+  }
+
   _frame(ts) {
     if (!this._running) return;
     if (this._lastTs == null) this._lastTs = ts;
