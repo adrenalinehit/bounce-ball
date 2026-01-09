@@ -22,6 +22,20 @@
         <div class="hint">
           Move: <kbd>A</kbd>/<kbd>D</kbd> or <kbd>←</kbd>/<kbd>→</kbd> · Launch: <kbd>Space</kbd> · Pause: <kbd>P</kbd> · Restart: <kbd>R</kbd>
         </div>
+        <div class="uiMenuWrap">
+          <button class="uiMenuBtn" id="uiMenuBtn" type="button" aria-haspopup="true" aria-expanded="false">
+            Power ups
+          </button>
+          <div class="uiMenu" id="uiMenu" hidden>
+            <div class="uiMenuTitle">Power ups / Visual Variations</div>
+            <label class="uiOpt"><input id="optRocketTails" type="checkbox" /> Rocket tails (ball trail)</label>
+            <label class="uiOpt"><input id="optColoredBlocks" type="checkbox" /> Coloured blocks</label>
+            <label class="uiOpt"><input id="optAlwaysMultiball" type="checkbox" /> Always multi-ball</label>
+            <label class="uiOpt"><input id="optScanlines" type="checkbox" /> CRT scanlines</label>
+            <label class="uiOpt"><input id="optMinimalHud" type="checkbox" /> Minimal HUD</label>
+            <label class="uiOpt"><input id="optReducedMotion" type="checkbox" /> Reduced motion (no shake/flash)</label>
+          </div>
+        </div>
         <div class="cheatPanel" id="cheatPanel" hidden>
           <span class="cheatLabel">Cheat</span>
           <label class="cheatField">

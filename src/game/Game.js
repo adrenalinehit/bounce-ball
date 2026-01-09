@@ -13,9 +13,9 @@ const GameState = Object.freeze({
 
 export class Game {
   /**
-   * @param {{canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, hud: {scoreEl:HTMLElement|null, livesEl:HTMLElement|null, levelEl:HTMLElement|null, effectsEl?:HTMLElement|null, messageEl:HTMLElement|null}}} opts
+   * @param {{canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, hud: {scoreEl:HTMLElement|null, livesEl:HTMLElement|null, levelEl:HTMLElement|null, effectsEl?:HTMLElement|null, messageEl:HTMLElement|null}, visuals?:any}} opts
    */
-  constructor({ canvas, ctx, hud }) {
+  constructor({ canvas, ctx, hud, visuals }) {
     this.canvas = canvas;
     this.ctx = ctx;
     this.hud = hud;
@@ -38,6 +38,15 @@ export class Game {
     this._running = false;
 
     this.world = null;
+    this.visuals = {
+      rocketTails: false,
+      coloredBlocks: false,
+      alwaysMultiball: false,
+      scanlines: false,
+      minimalHud: false,
+      reducedMotion: false,
+    };
+    if (visuals) this.setVisualSettings(visuals);
   }
 
   start() {
@@ -46,6 +55,12 @@ export class Game {
     this.input.attach();
     this._setHudMessage("Press Space to start");
     requestAnimationFrame((ts) => this._frame(ts));
+  }
+
+  setVisualSettings(visuals) {
+    if (!visuals || typeof visuals !== "object") return;
+    this.visuals = { ...this.visuals, ...visuals };
+    if (this.world) this.world.setVisuals(this.visuals);
   }
 
   getLevelMetaList() {
@@ -184,6 +199,7 @@ export class Game {
       arenaH: this.canvas.height,
       input: this.input,
       level,
+      visuals: this.visuals,
       onLifeLost: () => {
         this.lives -= 1;
         if (this.lives <= 0) {

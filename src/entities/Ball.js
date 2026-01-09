@@ -11,6 +11,10 @@ export class Ball {
     this.stuckToPaddle = true;
     this.maxSpeed = 760;
     this.minSpeed = 420;
+
+    // for optional rocket tail effect
+    this.trail = [];
+    this.trailMax = 22;
   }
 
   resetOnPaddle(paddle) {
@@ -39,10 +43,15 @@ export class Ball {
     if (this.stuckToPaddle) {
       this.x = env.paddle.centerX;
       this.y = env.paddle.y - this.radius - 2;
+      this.trail.length = 0;
       return;
     }
     this.x += this.vx * dt;
     this.y += this.vy * dt;
+
+    // trail history
+    this.trail.push({ x: this.x, y: this.y, vx: this.vx, vy: this.vy });
+    if (this.trail.length > this.trailMax) this.trail.splice(0, this.trail.length - this.trailMax);
 
     // walls
     if (this.x - this.radius < 0) {
@@ -66,14 +75,57 @@ export class Ball {
     }
   }
 
-  render(ctx) {
+  render(ctx, visuals = {}) {
     ctx.save();
+    if (visuals.rocketTails && !visuals.reducedMotion) {
+      renderRocketTail(ctx, this);
+    }
     ctx.fillStyle = "rgba(255,255,255,0.92)";
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
+}
+
+function renderRocketTail(ctx, ball) {
+  const pts = ball.trail;
+  if (!pts || pts.length < 3) return;
+
+  // draw glow circles along the path, fading toward older samples
+  for (let i = 0; i < pts.length; i++) {
+    const t = i / (pts.length - 1);
+    const alpha = (1 - t) * 0.22;
+    const r = ball.radius * (0.55 + (1 - t) * 0.85);
+    ctx.fillStyle = `rgba(255,140,70,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(pts[i].x, pts[i].y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // small flame behind the ball based on current velocity
+  const vx = ball.vx;
+  const vy = ball.vy;
+  const sp = Math.hypot(vx, vy);
+  if (sp < 1) return;
+  const nx = -vx / sp;
+  const ny = -vy / sp;
+  const fx = ball.x + nx * (ball.radius * 1.1);
+  const fy = ball.y + ny * (ball.radius * 1.1);
+  const len = ball.radius * 2.6;
+
+  const grad = ctx.createLinearGradient(fx, fy, fx + nx * len, fy + ny * len);
+  grad.addColorStop(0, "rgba(255,255,255,0.85)");
+  grad.addColorStop(0.35, "rgba(255,180,80,0.55)");
+  grad.addColorStop(1, "rgba(255,80,60,0.00)");
+
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = ball.radius * 1.4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(fx, fy);
+  ctx.lineTo(fx + nx * len, fy + ny * len);
+  ctx.stroke();
 }
 
 

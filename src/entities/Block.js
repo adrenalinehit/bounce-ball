@@ -42,15 +42,19 @@ export class Block {
     return { destroyed: false };
   }
 
-  render(ctx) {
+  render(ctx, visuals = {}) {
     if (this.dead) return;
     const t = this.type;
     let fill = "rgba(255,255,255,0.16)";
-    if (t === BlockType.normal) fill = "rgba(110,231,255,0.22)";
-    if (t === BlockType.strong) fill = "rgba(255,255,255,0.20)";
-    if (t === BlockType.unbreakable) fill = "rgba(255,110,110,0.22)";
-    if (t === BlockType.explosive) fill = "rgba(255,215,110,0.22)";
-    if (t === BlockType.splitter) fill = "rgba(170,110,255,0.22)";
+    if (visuals.coloredBlocks) {
+      fill = coloredFillFor(this, t);
+    } else {
+      if (t === BlockType.normal) fill = "rgba(110,231,255,0.22)";
+      if (t === BlockType.strong) fill = "rgba(255,255,255,0.20)";
+      if (t === BlockType.unbreakable) fill = "rgba(255,110,110,0.22)";
+      if (t === BlockType.explosive) fill = "rgba(255,215,110,0.22)";
+      if (t === BlockType.splitter) fill = "rgba(170,110,255,0.22)";
+    }
 
     ctx.save();
     ctx.fillStyle = fill;
@@ -85,6 +89,21 @@ export class Block {
 
     ctx.restore();
   }
+}
+
+function coloredFillFor(block, type) {
+  if (type === BlockType.unbreakable) return "rgba(255,110,110,0.24)";
+  if (type === BlockType.explosive) return "rgba(255,215,110,0.26)";
+  if (type === BlockType.splitter) return "rgba(170,110,255,0.26)";
+
+  const r = typeof block.row === "number" ? block.row : 0;
+  const c = typeof block.col === "number" ? block.col : 0;
+  const hue = (r * 34 + c * 22) % 360;
+
+  // Strong blocks shift a bit and get darker when damaged
+  const hpPct = block.maxHp > 0 ? Math.max(0, Math.min(1, block.hp / block.maxHp)) : 1;
+  const light = type === BlockType.strong ? 58 * hpPct + 16 : 58;
+  return `hsla(${hue}, 90%, ${light}%, 0.22)`;
 }
 
 function roundRect(ctx, x, y, w, h, r) {

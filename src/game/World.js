@@ -6,13 +6,14 @@ import { circleVsAabb, resolveCircleAabb } from "../physics/collisions.js";
 
 export class World {
   /**
-   * @param {{arenaW:number, arenaH:number, input:any, level:any, onLifeLost:()=>void, onWin:()=>void, onScore:(n:number)=>void, onSfx?:(name:string)=>void}} opts
+   * @param {{arenaW:number, arenaH:number, input:any, level:any, visuals?:any, onLifeLost:()=>void, onWin:()=>void, onScore:(n:number)=>void, onSfx?:(name:string)=>void}} opts
    */
-  constructor({ arenaW, arenaH, input, level, onLifeLost, onWin, onScore, onSfx }) {
+  constructor({ arenaW, arenaH, input, level, visuals, onLifeLost, onWin, onScore, onSfx }) {
     this.arenaW = arenaW;
     this.arenaH = arenaH;
     this.input = input;
     this.level = level;
+    this.visuals = visuals ?? {};
     this.onLifeLost = onLifeLost;
     this.onWin = onWin;
     this.onScore = onScore;
@@ -44,11 +45,18 @@ export class World {
       shakeMag: 0,
       flashT: 0,
     };
+
+    this._alwaysMultiDidSpawnThisServe = false;
+  }
+
+  setVisuals(visuals) {
+    this.visuals = visuals ?? {};
   }
 
   resetServe() {
     this.balls = [new Ball({ x: 0, y: 0, radius: 8 })];
     this.balls[0].resetOnPaddle(this.paddle);
+    this._alwaysMultiDidSpawnThisServe = false;
   }
 
   update(dt) {
@@ -161,8 +169,24 @@ export class World {
       }
     }
 
-    // lose condition per-ball: if all balls fall out, life lost
+    // remove lost balls
     this.balls = this.balls.filter((b) => b.y - b.radius <= this.arenaH + 40);
+
+    // Visual option: Always multi-ball (keep at least 2 balls in play after launch)
+    if (this.visuals?.alwaysMultiball) {
+      const flying = this.balls.filter((b) => !b.stuckToPaddle);
+      if (flying.length >= 1 && this.balls.length === 1) {
+        // spawn exactly one extra ball when down to 1
+        this._spawnExtraBallFrom(flying[0], 0.35);
+      }
+      // on first launch of a serve, ensure we start with 2
+      if (!this._alwaysMultiDidSpawnThisServe && flying.length >= 1) {
+        this._alwaysMultiDidSpawnThisServe = true;
+        if (this.balls.length === 1) this._spawnExtraBallFrom(flying[0], -0.35);
+      }
+    }
+
+    // lose condition per-serve: if all balls fall out, life lost
     if (this.balls.length === 0) {
       this.onLifeLost();
       return;
@@ -206,9 +230,9 @@ export class World {
     }
     ctx.restore();
 
-    for (const b of this.blocks) b.render(ctx);
+    for (const b of this.blocks) b.render(ctx, this.visuals);
     this.paddle.render(ctx);
-    for (const ball of this.balls) ball.render(ctx);
+    for (const ball of this.balls) ball.render(ctx, this.visuals);
     for (const p of this.powerups) p.render(ctx);
 
     if (flash > 0) {
@@ -304,6 +328,17 @@ export class World {
     }
   }
 
+  _spawnExtraBallFrom(ref, angleOffset) {
+    const baseAng = Math.atan2(ref.vy, ref.vx);
+    const speed = Math.max(ref.minSpeed, Math.hypot(ref.vx, ref.vy));
+    const a = baseAng + angleOffset;
+    const b = new Ball({ x: ref.x, y: ref.y, radius: ref.radius });
+    b.stuckToPaddle = false;
+    b.vx = Math.cos(a) * speed;
+    b.vy = Math.sin(a) * speed;
+    this.balls.push(b);
+  }
+
   getEffectsSummary() {
     const parts = [];
     if (this.effects[PowerupType.wide] > 0) parts.push("WIDE");
@@ -313,6 +348,7 @@ export class World {
   }
 
   _juice(shakeT, shakeMag, flashT) {
+    if (this.visuals?.reducedMotion) return;
     this.juice.shakeT = Math.max(this.juice.shakeT, shakeT);
     this.juice.shakeMag = Math.max(this.juice.shakeMag, shakeMag);
     this.juice.flashT = Math.max(this.juice.flashT, flashT);
