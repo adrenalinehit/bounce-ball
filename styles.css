@@ -89,10 +89,11 @@ html, body {
   top: 34px;
   right: 0;
   min-width: 240px;
+  max-width: min(360px, 92vw);
   padding: 10px 10px 8px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(10, 14, 22, 0.72);
+  background: rgba(10, 14, 22, 0.82);
   backdrop-filter: blur(10px);
   box-shadow: 0 16px 40px var(--shadow);
   display: grid;
@@ -119,6 +120,60 @@ html, body {
 .uiOpt input {
   width: 14px;
   height: 14px;
+}
+
+.uiOpt {
+  padding: 6px 4px;
+}
+
+.uiMenuBtn {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    gap: 10px;
+  }
+
+  .hint {
+    flex-basis: 100%;
+    order: 2;
+  }
+
+  .uiMenuWrap {
+    order: 3;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .uiMenuBtn {
+    height: 36px;
+    font-size: 14px;
+    padding: 0 14px;
+  }
+
+  /* On mobile, render the menu as a fixed sheet so it can’t be off-screen */
+  .uiMenu {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: calc(12px + env(safe-area-inset-top) + 64px);
+    max-width: none;
+    min-width: 0;
+    background: rgba(10, 14, 22, 0.92);
+    z-index: 1000;
+  }
+
+  .uiOpt {
+    font-size: 14px;
+    padding: 10px 6px;
+  }
+
+  .uiOpt input {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 .minimalHud .hud {
