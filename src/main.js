@@ -1,9 +1,8 @@
 import { Game } from "./game/Game.js";
-import { fetchTopScores, submitScore, verifyRecaptchaV3 } from "./backend/firebase.js";
+import { fetchTopScores, submitScore } from "./backend/firebase.js";
 
 const VISUALS_KEY = "bounce_visuals_v1";
 const PLAYER_NAME_KEY = "bounce_player_name_v1";
-const RECAPTCHA_SITE_KEY = "6LdRekUsAAAAAHwevN-t_Dm52Uwfm0GyMDOd_XTK";
 
 function getCanvas() {
   const canvas = document.getElementById("game");
@@ -173,15 +172,6 @@ function setNameError(msg) {
   nameError.hidden = !msg;
 }
 
-async function getRecaptchaToken(action) {
-  const g = window.grecaptcha;
-  if (!g || typeof g.ready !== "function" || typeof g.execute !== "function") {
-    throw new Error("reCAPTCHA not loaded");
-  }
-  await new Promise((resolve) => g.ready(resolve));
-  return await g.execute(RECAPTCHA_SITE_KEY, { action });
-}
-
 playerName = loadPlayerName();
 if (!playerName) showNameModal();
 else startGameIfReady();
@@ -199,22 +189,12 @@ if (nameForm instanceof HTMLFormElement) {
         return;
       }
 
-      // reCAPTCHA v3 verify via Cloud Function before allowing play
-      const action = "name_submit";
-      const token = await getRecaptchaToken(action);
-      const verdict = await verifyRecaptchaV3({ token, action });
-      if (!verdict || verdict.ok !== true) {
-        throw new Error("Verification failed");
-      }
-
       playerName = nextName;
       startGameIfReady();
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.warn("Name verification failed", err);
-      setNameError(
-        "Could not verify you (reCAPTCHA). Make sure the Cloud Function is deployed and your site key allows this domain.",
-      );
+      console.warn("Name submit failed", err);
+      setNameError("Could not start. Please try again.");
     } finally {
       if (playBtn instanceof HTMLButtonElement) playBtn.disabled = false;
     }

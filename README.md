@@ -40,23 +40,15 @@ service cloud.firestore {
 }
 ```
 
-## reCAPTCHA v3 (verified via Cloud Functions)
-The name “Play” button uses reCAPTCHA v3 and verifies the token via a Firebase Callable Cloud Function.
+## Firebase App Check (reCAPTCHA v3)
+This app initializes Firebase **App Check** using the **ReCaptchaV3Provider**.
 
-### Setup steps
-- Create a **reCAPTCHA v3 secret key** in Google reCAPTCHA admin and add your domains (include `localhost` for dev).
-- Install Firebase CLI (`firebase-tools`) and login.
-- Set the secret used by the function:
+### Enable it
+- Firebase Console → **App Check** → register your web app and provide the reCAPTCHA v3 site key.
+- If you turn on **enforcement** for Firestore, requests without valid App Check tokens will be rejected.
 
-```bash
-firebase functions:secrets:set RECAPTCHA_SECRET
-```
-
-- Deploy the function:
-
-```bash
-firebase deploy --only functions:verifyRecaptchaV3
-```
+### Local development (debug tokens)
+When running on `localhost`, the client sets `FIREBASE_APPCHECK_DEBUG_TOKEN = true` and Firebase will print a debug token in the browser console. Add it in Firebase Console → App Check → **Manage debug tokens**.
 
 ## Controls
 - Move: A/D or Left/Right arrows (mouse movement also works when focused)
