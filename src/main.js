@@ -1,6 +1,9 @@
 import { Game } from "./game/Game.js";
+import { fetchTopScores, submitScore, verifyRecaptchaV3 } from "./backend/firebase.js";
 
 const VISUALS_KEY = "bounce_visuals_v1";
+const PLAYER_NAME_KEY = "bounce_player_name_v1";
+const RECAPTCHA_SITE_KEY = "6LdRekUsAAAAAHwevN-t_Dm52Uwfm0GyMDOd_XTK";
 
 function getCanvas() {
   const canvas = document.getElementById("game");
@@ -65,8 +68,161 @@ const hud = getHud();
 const visuals = loadVisuals();
 applyVisualsToDom(visuals);
 
-const game = new Game({ canvas, ctx, hud, visuals });
-game.start();
+const leaderboardStatus = document.getElementById("leaderboardStatus");
+const leaderboardList = document.getElementById("leaderboardList");
+
+function setLeaderboardStatus(msg) {
+  if (leaderboardStatus) leaderboardStatus.textContent = msg;
+}
+
+function renderLeaderboard(rows) {
+  if (!leaderboardList) return;
+  leaderboardList.replaceChildren(
+    ...rows.map((r) => {
+      const li = document.createElement("li");
+      li.className = "leaderboardItem";
+      const name = document.createElement("div");
+      name.className = "leaderboardName";
+      name.textContent = r.name;
+      const score = document.createElement("div");
+      score.className = "leaderboardScore";
+      score.textContent = String(r.score);
+      li.append(name, score);
+      return li;
+    }),
+  );
+}
+
+async function refreshLeaderboard() {
+  try {
+    setLeaderboardStatus("Loading…");
+    const rows = await fetchTopScores({ topN: 10 });
+    renderLeaderboard(rows);
+    setLeaderboardStatus("Top 10");
+  } catch (e) {
+    setLeaderboardStatus("Leaderboard unavailable");
+    renderLeaderboard([]);
+    // eslint-disable-next-line no-console
+    console.warn("Leaderboard fetch failed", e);
+  }
+}
+
+let playerName = "";
+function loadPlayerName() {
+  const raw = localStorage.getItem(PLAYER_NAME_KEY);
+  return (raw ?? "").trim().slice(0, 16);
+}
+function savePlayerName(name) {
+  const s = String(name ?? "").trim().replace(/\s+/g, " ").slice(0, 16);
+  localStorage.setItem(PLAYER_NAME_KEY, s);
+  return s;
+}
+
+const game = new Game({
+  canvas,
+  ctx,
+  hud,
+  visuals,
+  onGameOver: async ({ score }) => {
+    if (!playerName) return;
+    if (!Number.isFinite(score) || score <= 0) return;
+    try {
+      setLeaderboardStatus("Submitting…");
+      await submitScore({ name: playerName, score, version: "web" });
+      await refreshLeaderboard();
+    } catch (e) {
+      setLeaderboardStatus("Submit failed");
+      // eslint-disable-next-line no-console
+      console.warn("Score submit failed", e);
+    }
+  },
+});
+
+// Gate starting the game until a name is provided
+const nameModal = document.getElementById("nameModal");
+const nameForm = document.getElementById("nameForm");
+const nameInput = document.getElementById("playerName");
+const nameError = document.getElementById("nameError");
+const playBtn = document.getElementById("playBtn");
+
+function showNameModal() {
+  if (nameModal) nameModal.hidden = false;
+  if (nameError) nameError.hidden = true;
+  if (nameInput instanceof HTMLInputElement) {
+    nameInput.value = playerName || "Player";
+    // focus on next tick (mobile)
+    setTimeout(() => nameInput.focus(), 0);
+    nameInput.select?.();
+  }
+}
+
+function hideNameModal() {
+  if (nameModal) nameModal.hidden = true;
+}
+
+function startGameIfReady() {
+  if (!playerName) return;
+  hideNameModal();
+  game.start();
+  canvas.focus();
+}
+
+function setNameError(msg) {
+  if (!nameError) return;
+  nameError.textContent = msg;
+  nameError.hidden = !msg;
+}
+
+async function getRecaptchaToken(action) {
+  const g = window.grecaptcha;
+  if (!g || typeof g.ready !== "function" || typeof g.execute !== "function") {
+    throw new Error("reCAPTCHA not loaded");
+  }
+  await new Promise((resolve) => g.ready(resolve));
+  return await g.execute(RECAPTCHA_SITE_KEY, { action });
+}
+
+playerName = loadPlayerName();
+if (!playerName) showNameModal();
+else startGameIfReady();
+
+if (nameForm instanceof HTMLFormElement) {
+  nameForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setNameError("");
+    if (playBtn instanceof HTMLButtonElement) playBtn.disabled = true;
+    try {
+      const val = nameInput instanceof HTMLInputElement ? nameInput.value : "";
+      const nextName = savePlayerName(val);
+      if (!nextName) {
+        setNameError("Please enter a name.");
+        return;
+      }
+
+      // reCAPTCHA v3 verify via Cloud Function before allowing play
+      const action = "name_submit";
+      const token = await getRecaptchaToken(action);
+      const verdict = await verifyRecaptchaV3({ token, action });
+      if (!verdict || verdict.ok !== true) {
+        throw new Error("Verification failed");
+      }
+
+      playerName = nextName;
+      startGameIfReady();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("Name verification failed", err);
+      setNameError(
+        "Could not verify you (reCAPTCHA). Make sure the Cloud Function is deployed and your site key allows this domain.",
+      );
+    } finally {
+      if (playBtn instanceof HTMLButtonElement) playBtn.disabled = false;
+    }
+  });
+}
+
+// Kick off leaderboard load immediately
+refreshLeaderboard();
 
 // Visuals menu wiring
 const uiMenuBtn = document.getElementById("uiMenuBtn");

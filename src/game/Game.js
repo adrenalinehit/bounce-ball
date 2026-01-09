@@ -15,10 +15,12 @@ export class Game {
   /**
    * @param {{canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, hud: {scoreEl:HTMLElement|null, livesEl:HTMLElement|null, levelEl:HTMLElement|null, effectsEl?:HTMLElement|null, messageEl:HTMLElement|null}, visuals?:any}} opts
    */
-  constructor({ canvas, ctx, hud, visuals }) {
+  constructor({ canvas, ctx, hud, visuals, onGameOver }) {
     this.canvas = canvas;
     this.ctx = ctx;
     this.hud = hud;
+    this.onGameOver = typeof onGameOver === "function" ? onGameOver : null;
+    this._lastState = null;
 
     this.input = new Input({ canvas });
     this.levelLoader = new LevelLoader();
@@ -176,6 +178,7 @@ export class Game {
   }
 
   _setState(next) {
+    this._lastState = this.state;
     this.state = next;
     if (next === GameState.title) this._setHudMessage("Press Space to start");
     else if (next === GameState.paused) this._setHudMessage("Paused — Press P to resume");
@@ -191,6 +194,13 @@ export class Game {
     else if (next === GameState.game_over) {
       sfx("game_over");
       this._setHudMessage("Game over — Press Space to retry");
+      if (this._lastState !== GameState.game_over && this.onGameOver) {
+        try {
+          this.onGameOver({ score: this.score, level: this.levelIndex + 1 });
+        } catch {
+          // ignore callback errors
+        }
+      }
     }
   }
 
