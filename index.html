@@ -33,6 +33,7 @@
             <label class="uiOpt"><input id="optAlwaysMultiball" type="checkbox" /> Always multi-ball</label>
             <label class="uiOpt"><input id="optScanlines" type="checkbox" /> CRT scanlines</label>
             <label class="uiOpt"><input id="optMinimalHud" type="checkbox" /> Minimal HUD</label>
+            <label class="uiOpt"><input id="optShowFps" type="checkbox" /> Show FPS (footer)</label>
             <label class="uiOpt"><input id="optReducedMotion" type="checkbox" /> Reduced motion (no shake/flash)</label>
           </div>
         </div>
@@ -60,7 +61,8 @@
       </main>
 
       <footer class="footer">
-        Tip: You can also use the mouse to move the paddle when the canvas is focused.
+        <span>Tip: You can also use the mouse to move the paddle when the canvas is focused.</span>
+        <span class="fps" id="fps" hidden>FPS: --</span>
       </footer>
     </div>
 

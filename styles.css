@@ -262,7 +262,15 @@ canvas#game {
 .footer {
   color: var(--muted);
   font-size: 12px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
   text-align: center;
+}
+
+.fps {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 

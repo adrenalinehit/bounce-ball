@@ -44,6 +44,7 @@ export class Game {
       alwaysMultiball: false,
       scanlines: false,
       minimalHud: false,
+      showFps: false,
       reducedMotion: false,
     };
     if (visuals) this.setVisualSettings(visuals);

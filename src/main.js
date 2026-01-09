@@ -26,6 +26,7 @@ function loadVisuals() {
     alwaysMultiball: false,
     scanlines: false,
     minimalHud: false,
+    showFps: false,
     reducedMotion: false,
   };
   try {
@@ -75,7 +76,9 @@ const optColoredBlocks = document.getElementById("optColoredBlocks");
 const optAlwaysMultiball = document.getElementById("optAlwaysMultiball");
 const optScanlines = document.getElementById("optScanlines");
 const optMinimalHud = document.getElementById("optMinimalHud");
+const optShowFps = document.getElementById("optShowFps");
 const optReducedMotion = document.getElementById("optReducedMotion");
+const fpsEl = document.getElementById("fps");
 
 function setMenuOpen(open) {
   if (!uiMenuBtn || !uiMenu) return;
@@ -89,13 +92,54 @@ function syncCheckboxes() {
   if (optAlwaysMultiball instanceof HTMLInputElement) optAlwaysMultiball.checked = !!visuals.alwaysMultiball;
   if (optScanlines instanceof HTMLInputElement) optScanlines.checked = !!visuals.scanlines;
   if (optMinimalHud instanceof HTMLInputElement) optMinimalHud.checked = !!visuals.minimalHud;
+  if (optShowFps instanceof HTMLInputElement) optShowFps.checked = !!visuals.showFps;
   if (optReducedMotion instanceof HTMLInputElement) optReducedMotion.checked = !!visuals.reducedMotion;
+}
+
+let fpsLoopRunning = false;
+let fpsLastTs = 0;
+let fpsEma = 60;
+let fpsLastPaint = 0;
+
+function startFpsLoop() {
+  if (fpsLoopRunning) return;
+  if (!fpsEl) return;
+  fpsLoopRunning = true;
+  fpsLastTs = performance.now();
+  fpsLastPaint = fpsLastTs;
+  const tick = (ts) => {
+    if (!fpsLoopRunning) return;
+    const dt = ts - fpsLastTs;
+    fpsLastTs = ts;
+    if (dt > 0) {
+      const inst = 1000 / dt;
+      fpsEma = fpsEma * 0.90 + inst * 0.10;
+    }
+
+    // update text at ~5Hz so it doesn’t flicker
+    if (ts - fpsLastPaint > 200) {
+      fpsLastPaint = ts;
+      fpsEl.textContent = `FPS: ${Math.round(fpsEma)}`;
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+function stopFpsLoop() {
+  fpsLoopRunning = false;
 }
 
 function commitVisuals() {
   applyVisualsToDom(visuals);
   saveVisuals(visuals);
   game.setVisualSettings(visuals);
+
+  if (fpsEl) {
+    fpsEl.hidden = !visuals.showFps;
+    if (visuals.showFps) startFpsLoop();
+    else stopFpsLoop();
+  }
 }
 
 syncCheckboxes();
@@ -134,6 +178,7 @@ bindOpt(optColoredBlocks, "coloredBlocks");
 bindOpt(optAlwaysMultiball, "alwaysMultiball");
 bindOpt(optScanlines, "scanlines");
 bindOpt(optMinimalHud, "minimalHud");
+bindOpt(optShowFps, "showFps");
 bindOpt(optReducedMotion, "reducedMotion");
 
 // Cheat mode: add a level selector when `?cheat=1` is present
