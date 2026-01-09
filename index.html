@@ -17,6 +17,9 @@
       gtag('js', new Date());
       gtag('config', 'G-BF71D8EH7X');
     </script>
+
+    <!-- reCAPTCHA v3 -->
+    <script src="https://www.google.com/recaptcha/api.js?render=6LdRekUsAAAAAHwevN-t_Dm52Uwfm0GyMDOd_XTK" async defer></script>
   </head>
   <body>
     <div class="app">
@@ -63,10 +66,40 @@
         </div>
       </main>
 
+      <section class="leaderboard" aria-label="High scores">
+        <div class="leaderboardHeader">
+          <div class="leaderboardTitle">High Scores</div>
+          <div class="leaderboardSub" id="leaderboardStatus">Loading…</div>
+        </div>
+        <ol class="leaderboardList" id="leaderboardList"></ol>
+      </section>
+
       <footer class="footer">
         <span>Tip: drag to move, tap to launch, double-tap to pause, long-press to restart.</span>
         <span class="fps" id="fps" hidden>FPS: --</span>
       </footer>
+    </div>
+
+    <div class="modalBackdrop" id="nameModal" hidden>
+      <div class="modal">
+        <div class="modalTitle">Enter your name</div>
+        <div class="modalSub">This will be used for the Top 10 leaderboard.</div>
+        <form id="nameForm" class="modalForm">
+          <input
+            id="playerName"
+            class="modalInput"
+            type="text"
+            inputmode="text"
+            autocomplete="nickname"
+            maxlength="16"
+            placeholder="Player"
+            required
+          />
+          <button class="modalBtn" id="playBtn" type="submit">Play</button>
+        </form>
+        <div class="modalError" id="nameError" hidden></div>
+        <div class="modalHint">Tip: keep it short (max 16 chars).</div>
+      </div>
     </div>
 
     <script type="module" src="./src/main.js"></script>
