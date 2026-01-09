@@ -65,6 +65,7 @@ export class LevelLoader {
           "1": { type: BlockType.normal },
           "2": { type: BlockType.strong, hp: 3 },
           "X": { type: BlockType.unbreakable },
+          "E": { type: BlockType.explosive },
         },
       },
       {
