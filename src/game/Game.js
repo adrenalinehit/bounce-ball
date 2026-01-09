@@ -159,6 +159,13 @@ export class Game {
     if (this.state === GameState.paused) return;
 
     // playing
+    if (tap && this.state === GameState.playing && this.world) {
+      // Mobile-friendly launch: tap acts like Space for launching stuck balls.
+      ensureAudioUnlocked();
+      const launched = this.world.launchStuckBalls();
+      if (launched) this._setHudMessage("");
+    }
+
     if (this.world) this.world.update(dt);
   }
 

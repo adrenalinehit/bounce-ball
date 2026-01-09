@@ -59,6 +59,17 @@ export class World {
     this._alwaysMultiDidSpawnThisServe = false;
   }
 
+  launchStuckBalls() {
+    let launched = false;
+    for (const b of this.balls) {
+      if (b.stuckToPaddle) {
+        b.launch();
+        launched = true;
+      }
+    }
+    return launched;
+  }
+
   update(dt) {
     // effect timers
     for (const k of Object.keys(this.effects)) {
@@ -69,9 +80,7 @@ export class World {
     this.paddle.update(dt, this.input);
 
     const launchPressed = this.input.isDown("Space");
-    if (launchPressed) {
-      for (const b of this.balls) b.launch();
-    }
+    if (launchPressed) this.launchStuckBalls();
 
     for (const ball of this.balls) {
       ball.update(dt, { arenaW: this.arenaW, arenaH: this.arenaH, paddle: this.paddle });
