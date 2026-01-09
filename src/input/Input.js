@@ -19,6 +19,8 @@ export class Input {
     this._downY = 0;
     this._moved = false;
     this._longPressTimer = null;
+    this._peOpts = { passive: false };
+    this._touchFallbackEnabled = typeof window !== "undefined" && !("PointerEvent" in window);
 
     this._onKeyDown = (e) => {
       this.keys.add(e.code);
@@ -42,6 +44,7 @@ export class Input {
 
     this._onPointerMove = (e) => {
       if (this._pointerId !== null && e.pointerId !== this._pointerId) return;
+      if (e.pointerType === "touch" && e.cancelable) e.preventDefault();
       const p = calcPointer(e.clientX, e.clientY);
       this.pointerX = p.x;
       this.pointerY = p.y;
@@ -55,6 +58,7 @@ export class Input {
     this._onPointerDown = (e) => {
       // capture one active pointer for gestures
       if (this._pointerId !== null && e.pointerId !== this._pointerId) return;
+      if (e.pointerType === "touch" && e.cancelable) e.preventDefault();
       this._pointerId = e.pointerId;
       this._pointerDown = true;
       this._downAt = performance.now();
@@ -66,6 +70,13 @@ export class Input {
       this.pointerActive = true;
       this._downX = p.x;
       this._downY = p.y;
+
+      // ensure we keep getting move/up events even if the finger leaves the canvas
+      try {
+        if (typeof this.canvas.setPointerCapture === "function") this.canvas.setPointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
 
       // focus for keyboard users; harmless on mobile
       this.canvas.focus();
@@ -79,6 +90,7 @@ export class Input {
 
     this._onPointerUp = (e) => {
       if (this._pointerId !== null && e.pointerId !== this._pointerId) return;
+      if (e.pointerType === "touch" && e.cancelable) e.preventDefault();
       this._pointerDown = false;
       if (this._longPressTimer) {
         clearTimeout(this._longPressTimer);
@@ -93,6 +105,11 @@ export class Input {
         if (now - this._lastTapAt < 320) this._doubleTap = true;
         this._lastTapAt = now;
       }
+      try {
+        if (typeof this.canvas.releasePointerCapture === "function") this.canvas.releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
       this._pointerId = null;
     };
 
@@ -103,6 +120,44 @@ export class Input {
         clearTimeout(this._longPressTimer);
         this._longPressTimer = null;
       }
+    };
+
+    // Touch fallback (for browsers without PointerEvent)
+    this._onTouchStart = (e) => {
+      if (!e.touches || e.touches.length === 0) return;
+      if (e.cancelable) e.preventDefault();
+      const t = e.touches[0];
+      this._onPointerDown({
+        pointerId: 1,
+        pointerType: "touch",
+        clientX: t.clientX,
+        clientY: t.clientY,
+        cancelable: false,
+      });
+    };
+    this._onTouchMove = (e) => {
+      if (!e.touches || e.touches.length === 0) return;
+      if (e.cancelable) e.preventDefault();
+      const t = e.touches[0];
+      this._onPointerMove({
+        pointerId: 1,
+        pointerType: "touch",
+        clientX: t.clientX,
+        clientY: t.clientY,
+        cancelable: false,
+      });
+    };
+    this._onTouchEnd = (e) => {
+      if (e.cancelable) e.preventDefault();
+      this._onPointerUp({
+        pointerId: 1,
+        pointerType: "touch",
+        cancelable: false,
+      });
+    };
+    this._onTouchCancel = (e) => {
+      if (e.cancelable) e.preventDefault();
+      this._onPointerCancel();
     };
 
     // Mouse move still works for desktop without a captured pointer.
@@ -126,10 +181,17 @@ export class Input {
     window.addEventListener("blur", this._onBlur);
     this.canvas.addEventListener("mousemove", this._onMouseMove);
     this.canvas.addEventListener("mouseleave", this._onMouseLeave);
-    this.canvas.addEventListener("pointerdown", this._onPointerDown);
-    this.canvas.addEventListener("pointermove", this._onPointerMove);
-    this.canvas.addEventListener("pointerup", this._onPointerUp);
-    this.canvas.addEventListener("pointercancel", this._onPointerCancel);
+    this.canvas.addEventListener("pointerdown", this._onPointerDown, this._peOpts);
+    this.canvas.addEventListener("pointermove", this._onPointerMove, this._peOpts);
+    this.canvas.addEventListener("pointerup", this._onPointerUp, this._peOpts);
+    this.canvas.addEventListener("pointercancel", this._onPointerCancel, this._peOpts);
+
+    if (this._touchFallbackEnabled) {
+      this.canvas.addEventListener("touchstart", this._onTouchStart, { passive: false });
+      this.canvas.addEventListener("touchmove", this._onTouchMove, { passive: false });
+      this.canvas.addEventListener("touchend", this._onTouchEnd, { passive: false });
+      this.canvas.addEventListener("touchcancel", this._onTouchCancel, { passive: false });
+    }
   }
 
   detach() {
@@ -142,6 +204,13 @@ export class Input {
     this.canvas.removeEventListener("pointermove", this._onPointerMove);
     this.canvas.removeEventListener("pointerup", this._onPointerUp);
     this.canvas.removeEventListener("pointercancel", this._onPointerCancel);
+
+    if (this._touchFallbackEnabled) {
+      this.canvas.removeEventListener("touchstart", this._onTouchStart);
+      this.canvas.removeEventListener("touchmove", this._onTouchMove);
+      this.canvas.removeEventListener("touchend", this._onTouchEnd);
+      this.canvas.removeEventListener("touchcancel", this._onTouchCancel);
+    }
   }
 
   isDown(code) {
