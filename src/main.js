@@ -1,8 +1,8 @@
 import { Game } from "./game/Game.js";
-import { fetchTopScores, submitScore } from "./backend/firebase.js";
 
 const VISUALS_KEY = "bounce_visuals_v1";
 const PLAYER_NAME_KEY = "bounce_player_name_v1";
+const LOCAL_SCORES_KEY = "bounce_high_scores_v1";
 
 function getCanvas() {
   const canvas = document.getElementById("game");
@@ -92,18 +92,48 @@ function renderLeaderboard(rows) {
   );
 }
 
-async function refreshLeaderboard() {
+function refreshLeaderboard() {
+  const rows = loadLocalScores();
+  rows.sort((a, b) => b.score - a.score || b.ts - a.ts);
+  renderLeaderboard(rows.slice(0, 10));
+  setLeaderboardStatus("Local Top 10");
+}
+
+function loadLocalScores() {
   try {
-    setLeaderboardStatus("Loading…");
-    const rows = await fetchTopScores({ topN: 10 });
-    renderLeaderboard(rows);
-    setLeaderboardStatus("Top 10");
-  } catch (e) {
-    setLeaderboardStatus("Leaderboard unavailable");
-    renderLeaderboard([]);
-    // eslint-disable-next-line no-console
-    console.warn("Leaderboard fetch failed", e);
+    const raw = localStorage.getItem(LOCAL_SCORES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((x) => ({
+        name: typeof x?.name === "string" ? x.name : "Unknown",
+        score: typeof x?.score === "number" ? x.score : 0,
+        ts: typeof x?.ts === "number" ? x.ts : 0,
+      }))
+      .filter((x) => x.name && Number.isFinite(x.score));
+  } catch {
+    return [];
   }
+}
+
+function saveLocalScores(rows) {
+  try {
+    localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(rows));
+  } catch {
+    // ignore
+  }
+}
+
+function addLocalScore({ name, score }) {
+  const safeName = String(name ?? "").trim().replace(/\s+/g, " ").slice(0, 16);
+  const safeScore = Math.max(0, Math.floor(Number(score)));
+  if (!safeName || !Number.isFinite(safeScore) || safeScore <= 0) return;
+
+  const rows = loadLocalScores();
+  rows.push({ name: safeName, score: safeScore, ts: Date.now() });
+  rows.sort((a, b) => b.score - a.score || b.ts - a.ts);
+  saveLocalScores(rows.slice(0, 10));
 }
 
 let playerName = "";
@@ -122,18 +152,11 @@ const game = new Game({
   ctx,
   hud,
   visuals,
-  onGameOver: async ({ score }) => {
+  onGameOver: ({ score }) => {
     if (!playerName) return;
     if (!Number.isFinite(score) || score <= 0) return;
-    try {
-      setLeaderboardStatus("Submitting…");
-      await submitScore({ name: playerName, score, version: "web" });
-      await refreshLeaderboard();
-    } catch (e) {
-      setLeaderboardStatus("Submit failed");
-      // eslint-disable-next-line no-console
-      console.warn("Score submit failed", e);
-    }
+    addLocalScore({ name: playerName, score });
+    refreshLeaderboard();
   },
 });
 
